@@ -13,11 +13,12 @@ if(isset($_POST['add_student'])) {
 
     $sql = "INSERT INTO students (full_name, email, phone, grade, address)
             VALUES ('$name','$email','$phone','$grade','$address')";
-    if($db->query($sql)) {
-        $msg = ['type'=>'success', 'text'=>"Student '$name' added successfully! (Trigger logged this action)"];
-    } else {
-        $msg = ['type'=>'error', 'text'=>"Error: " . $db->error];
-    }
+    try {
+    $db->query($sql);
+    $msg = ['type'=>'success', 'text'=>"Student '$name' added successfully! (Trigger logged this action)"];
+} catch (mysqli_sql_exception $e) {
+    $msg = ['type'=>'error', 'text'=>'This email is already registered.'];
+}
 }
 
 // DELETE STUDENT

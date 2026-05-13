@@ -20,10 +20,16 @@ if(isset($_POST['add_class'])) {
     }
 }
 
-if(isset($_GET['delete'])) {
-    $id = (int)$_GET['delete'];
+if(isset($_GET['deactivate'])) {
+    $id = (int)$_GET['deactivate'];
     $db->query("UPDATE classes SET status='inactive' WHERE class_id=$id");
     $msg = ['type'=>'success','text'=>'Class deactivated.'];
+}
+
+if(isset($_GET['delete'])) {
+    $id = (int)$_GET['delete'];
+    $db->query("DELETE FROM classes WHERE class_id=$id");
+    $msg = ['type'=>'success','text'=>'Class deleted permanently.'];
 }
 
 $teachers = $db->query("SELECT * FROM teachers WHERE status='active' ORDER BY full_name");
@@ -116,10 +122,14 @@ include 'header.php';
                     </td>
                     <td><span class="badge badge-<?= $cl['status'] ?>"><?= strtoupper($cl['status']) ?></span></td>
                     <td>
-                        <a href="?delete=<?= $cl['class_id'] ?>"
-                           onclick="return confirm('Deactivate this class?')"
-                           class="btn btn-danger btn-sm">Del</a>
-                    </td>
+    <a href="?deactivate=<?= $cl['class_id'] ?>"
+       onclick="return confirm('Deactivate this class?')"
+       class="btn btn-warning btn-sm">Deactivate</a>
+
+    <a href="?delete=<?= $cl['class_id'] ?>"
+       onclick="return confirm('Delete this class permanently?')"
+       class="btn btn-danger btn-sm">Delete</a>
+</td>
                 </tr>
                 <?php endwhile; ?>
                 </tbody>

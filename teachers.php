@@ -21,11 +21,12 @@ if(isset($_POST['add_teacher'])) {
 
 if(isset($_GET['delete'])) {
     $id = (int)$_GET['delete'];
-    if($db->query("DELETE FROM teachers WHERE teacher_id=$id")) {
+
+    try {
+        $db->query("DELETE FROM teachers WHERE teacher_id=$id");
         $msg = ['type'=>'success','text'=>'Teacher deleted.'];
-    } else {
-        // Trigger error message
-        $msg = ['type'=>'error','text'=>'Cannot delete: ' . $db->error];
+    } catch (mysqli_sql_exception $e) {
+        $msg = ['type'=>'error','text'=>'This teacher has active classes. Cannot delete.'];
     }
 }
 

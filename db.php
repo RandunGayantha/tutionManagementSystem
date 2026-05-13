@@ -8,6 +8,7 @@ define('DB_USER', 'root');       // Change if needed
 define('DB_PASS', '');           // Your MySQL password
 define('DB_NAME', 'tuition_db');
 
+
 function getDB() {
     $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
     if ($conn->connect_error) {
