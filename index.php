@@ -2,27 +2,37 @@
 require_once 'db.php';
 $db = getDB();
 
-// Get counts for stats
-$total_students   = $db->query("SELECT COUNT(*) as c FROM students WHERE status='active'")->fetch_assoc()['c'];
-$total_teachers   = $db->query("SELECT COUNT(*) as c FROM teachers WHERE status='active'")->fetch_assoc()['c'];
-$total_classes    = $db->query("SELECT COUNT(*) as c FROM classes WHERE status='active'")->fetch_assoc()['c'];
-$total_enrollments= $db->query("SELECT COUNT(*) as c FROM enrollments")->fetch_assoc()['c'];
+// Helper: run query and get first row
+function queryFirst($conn, $sql) {
+    $stmt = sqlsrv_query($conn, $sql);
+    return sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+}
 
-// Recent enrollments
-$recent = $db->query("
-    SELECT s.full_name AS student, c.class_name, e.enroll_date, e.payment_status
+// Get counts for stats
+$total_students    = queryFirst($db, "SELECT COUNT(*) as c FROM students WHERE status='active'")['c'];
+$total_teachers    = queryFirst($db, "SELECT COUNT(*) as c FROM teachers WHERE status='active'")['c'];
+$total_classes     = queryFirst($db, "SELECT COUNT(*) as c FROM classes WHERE status='active'")['c'];
+$total_enrollments = queryFirst($db, "SELECT COUNT(*) as c FROM enrollments")['c'];
+
+// Recent enrollments (MSSQL uses TOP instead of LIMIT)
+$recent = sqlsrv_query($db, "
+    SELECT TOP 6 s.full_name AS student, c.class_name, e.enroll_date, e.payment_status
     FROM enrollments e
     JOIN students s ON e.student_id = s.student_id
     JOIN classes  c ON e.class_id   = c.class_id
-    ORDER BY e.enroll_date DESC LIMIT 6
+    ORDER BY e.enroll_date DESC
 ");
 
 // Payment summary
-$pay_summary = $db->query("
+$pay_stmt = sqlsrv_query($db, "
     SELECT payment_status, COUNT(*) as cnt
     FROM enrollments
     GROUP BY payment_status
-")->fetch_all(MYSQLI_ASSOC);
+");
+$pay_summary = [];
+while ($row = sqlsrv_fetch_array($pay_stmt, SQLSRV_FETCH_ASSOC)) {
+    $pay_summary[] = $row;
+}
 
 include 'header.php';
 ?>
@@ -66,11 +76,11 @@ include 'header.php';
                     <tr><th>Student</th><th>Class</th><th>Date</th><th>Payment</th></tr>
                 </thead>
                 <tbody>
-                <?php while($row = $recent->fetch_assoc()): ?>
+                <?php while($row = sqlsrv_fetch_array($recent, SQLSRV_FETCH_ASSOC)): ?>
                 <tr>
                     <td><?= htmlspecialchars($row['student']) ?></td>
                     <td><?= htmlspecialchars($row['class_name']) ?></td>
-                    <td><?= $row['enroll_date'] ?></td>
+                    <td><?= $row['enroll_date'] instanceof DateTime ? $row['enroll_date']->format('Y-m-d') : $row['enroll_date'] ?></td>
                     <td><span class="badge badge-<?= $row['payment_status'] ?>"><?= strtoupper($row['payment_status']) ?></span></td>
                 </tr>
                 <?php endwhile; ?>
@@ -102,8 +112,8 @@ include 'header.php';
             <hr style="margin:16px 0;border:none;border-top:1px solid #eee;">
 
             <?php
-            // Total revenue using our SQL function
-            $rev = $db->query("SELECT COALESCE(SUM(amount),0) AS total FROM payments")->fetch_assoc()['total'];
+            $rev_row = queryFirst($db, "SELECT COALESCE(SUM(amount),0) AS total FROM payments");
+            $rev = $rev_row['total'];
             ?>
             <div style="text-align:center;">
                 <div style="font-size:13px;color:#888;margin-bottom:4px;">Total Revenue Collected</div>
@@ -124,15 +134,15 @@ include 'header.php';
             </thead>
             <tbody>
             <?php
-            $classes = $db->query("
+            $classes = sqlsrv_query($db, "
                 SELECT c.*, t.full_name AS teacher_name,
-                       GetClassStudentCount(c.class_id) AS enrolled_count,
-                       IsClassFull(c.class_id) AS is_full
+                       dbo.GetClassStudentCount(c.class_id) AS enrolled_count,
+                       dbo.IsClassFull(c.class_id) AS is_full
                 FROM classes c
                 LEFT JOIN teachers t ON c.teacher_id = t.teacher_id
                 WHERE c.status='active'
             ");
-            while($cl = $classes->fetch_assoc()): ?>
+            while($cl = sqlsrv_fetch_array($classes, SQLSRV_FETCH_ASSOC)): ?>
             <tr>
                 <td><strong><?= htmlspecialchars($cl['class_name']) ?></strong></td>
                 <td><?= $cl['subject'] ?></td>
