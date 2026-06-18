@@ -2,7 +2,7 @@
 // ============================================
 // db.php - Database Connection (MSSQL)
 // ============================================
-define('DB_HOST', 'MSI\SQLEXPRESS');
+define('DB_HOST', 'DESKTOP-J4BHA1A\MSSQLSERVER01'); // <-- Updated with your exact server name
 define('DB_NAME', 'tuition_db');
 
 function getDB() {
