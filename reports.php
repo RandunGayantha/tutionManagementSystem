@@ -143,14 +143,22 @@ $pct=$r['capacity_used_pct'];$bc=$pct>=80?'#c62828':($pct>=50?'#f57f17':'#2e7d32
 <div class="card-header"><span class="card-title">📅 BI 1: Monthly Revenue Trend</span><small style="color:#888;">Window: SUM() OVER(ORDER BY month)</small></div>
 <table><thead><tr><th>Month</th><th>Transactions</th><th>Monthly Revenue</th><th>Avg Payment</th><th>Cumulative Revenue</th></tr></thead><tbody>
 <?php foreach(fetchAll($db, "
-    SELECT FORMAT(payment_date,'MMMM yyyy') AS ml,
-           COUNT(payment_id) AS t,
-           SUM(amount) AS rev,
-           ROUND(AVG(amount),2) AS avg_p,
-           SUM(SUM(amount)) OVER(ORDER BY FORMAT(payment_date,'yyyy-MM')) AS cum
-    FROM payments
-    GROUP BY FORMAT(payment_date,'yyyy-MM'), FORMAT(payment_date,'MMMM yyyy')
-    ORDER BY FORMAT(payment_date,'yyyy-MM')
+SELECT
+    DATENAME(MONTH, payment_date) + ' ' + CAST(YEAR(payment_date) AS VARCHAR) AS ml,
+    COUNT(payment_id) AS t,
+    SUM(amount) AS rev,
+    ROUND(AVG(amount),2) AS avg_p,
+    SUM(SUM(amount)) OVER(
+        ORDER BY YEAR(payment_date), MONTH(payment_date)
+    ) AS cum
+FROM payments
+GROUP BY
+    YEAR(payment_date),
+    MONTH(payment_date),
+    DATENAME(MONTH, payment_date)
+ORDER BY
+    YEAR(payment_date),
+    MONTH(payment_date)
 ") as $r): ?>
 <tr><td><strong><?=$r['ml']?></strong></td><td><?=$r['t']?></td>
 <td style="color:#2e7d32;font-weight:600;">Rs. <?=number_format($r['rev'],2)?></td>
