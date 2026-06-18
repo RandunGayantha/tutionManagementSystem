@@ -1,23 +1,28 @@
 <?php
 // ============================================
-// db.php - Database Connection
+// db.php - Database Connection (MSSQL)
 // ============================================
-
-define('DB_HOST', 'localhost');
-define('DB_USER', 'root');       // Change if needed
-define('DB_PASS', '');           // Your MySQL password
+define('DB_HOST', 'MSI\SQLEXPRESS');
 define('DB_NAME', 'tuition_db');
 
 function getDB() {
-    $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
-    if ($conn->connect_error) {
+    $connectionInfo = array(
+        "Database"      => DB_NAME,
+        "CharacterSet"  => "UTF-8",
+        "TrustServerCertificate" => true
+    );
+
+    $conn = sqlsrv_connect(DB_HOST, $connectionInfo);
+
+    if ($conn === false) {
+        $errors = sqlsrv_errors();
         die("<div style='color:red;padding:20px;font-family:sans-serif;'>
             <h3>Database Connection Failed</h3>
-            <p>" . $conn->connect_error . "</p>
-            <p>Make sure XAMPP MySQL is running and database <strong>" . DB_NAME . "</strong> exists.</p>
+            <p>" . $errors[0]['message'] . "</p>
+            <p>Make sure SQL Server is running and database <strong>" . DB_NAME . "</strong> exists.</p>
         </div>");
     }
-    $conn->set_charset("utf8");
+
     return $conn;
 }
 ?>
