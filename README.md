@@ -257,4 +257,3 @@ Use this checklist to make sure you have done everything:
 
 ---
 
-*If you are still stuck after following all steps, ask your team lead for help and share the exact error message you see on screen.*
