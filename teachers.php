@@ -4,38 +4,45 @@ $db = getDB();
 $msg = '';
 
 if(isset($_POST['add_teacher'])) {
-    $name    = $db->real_escape_string(trim($_POST['full_name']));
-    $email   = $db->real_escape_string(trim($_POST['email']));
-    $phone   = $db->real_escape_string(trim($_POST['phone']));
-    $subject = $db->real_escape_string(trim($_POST['subject']));
+    $name    = trim($_POST['full_name']);
+    $email   = trim($_POST['email']);
+    $phone   = trim($_POST['phone']);
+    $subject = trim($_POST['subject']);
     $salary  = (float)$_POST['salary'];
 
-    $sql = "INSERT INTO teachers (full_name,email,phone,subject,salary)
-            VALUES ('$name','$email','$phone','$subject',$salary)";
-    if($db->query($sql)) {
+    $stmt = sqlsrv_query($db,
+        "INSERT INTO teachers (full_name,email,phone,subject,salary) VALUES (?,?,?,?,?)",
+        [$name, $email, $phone, $subject, $salary]
+    );
+    if($stmt) {
         $msg = ['type'=>'success','text'=>"Teacher '$name' added!"];
     } else {
-        $msg = ['type'=>'error','text'=>$db->error];
+        $errors = sqlsrv_errors();
+        $msg = ['type'=>'error','text'=>$errors[0]['message']];
     }
 }
 
 if(isset($_GET['delete'])) {
     $id = (int)$_GET['delete'];
-    if($db->query("DELETE FROM teachers WHERE teacher_id=$id")) {
+    $stmt = sqlsrv_query($db, "DELETE FROM teachers WHERE teacher_id=?", [$id]);
+    if($stmt) {
         $msg = ['type'=>'success','text'=>'Teacher deleted.'];
     } else {
-        // Trigger error message
-        $msg = ['type'=>'error','text'=>'Cannot delete: ' . $db->error];
+        $errors = sqlsrv_errors();
+        $msg = ['type'=>'error','text'=>'Cannot delete: ' . $errors[0]['message']];
     }
 }
 
-$teachers = $db->query("
-    SELECT t.*, COUNT(c.class_id) AS class_count
+$teachers_stmt = sqlsrv_query($db, "
+    SELECT t.*,
+           (SELECT COUNT(*) FROM classes c WHERE c.teacher_id = t.teacher_id AND c.status='active') AS class_count
     FROM teachers t
-    LEFT JOIN classes c ON t.teacher_id = c.teacher_id AND c.status='active'
-    GROUP BY t.teacher_id
     ORDER BY t.teacher_id DESC
 ");
+$teachers_rows = [];
+while($row = sqlsrv_fetch_array($teachers_stmt, SQLSRV_FETCH_ASSOC)) {
+    $teachers_rows[] = $row;
+}
 
 include 'header.php';
 ?>
@@ -98,7 +105,7 @@ include 'header.php';
                     <tr><th>#</th><th>Name</th><th>Subject</th><th>Phone</th><th>Salary</th><th>Classes</th><th>Status</th><th>Action</th></tr>
                 </thead>
                 <tbody>
-                <?php while($t = $teachers->fetch_assoc()): ?>
+                <?php foreach($teachers_rows as $t): ?>
                 <tr>
                     <td><?= $t['teacher_id'] ?></td>
                     <td>
@@ -116,7 +123,7 @@ include 'header.php';
                            class="btn btn-danger btn-sm">Del</a>
                     </td>
                 </tr>
-                <?php endwhile; ?>
+                <?php endforeach; ?>
                 </tbody>
             </table>
             <small style="color:#888;display:block;margin-top:10px;">

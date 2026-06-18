@@ -5,40 +5,56 @@ $msg = '';
 
 // ADD STUDENT
 if(isset($_POST['add_student'])) {
-    $name    = $db->real_escape_string(trim($_POST['full_name']));
-    $email   = $db->real_escape_string(trim($_POST['email']));
-    $phone   = $db->real_escape_string(trim($_POST['phone']));
-    $grade   = $db->real_escape_string(trim($_POST['grade']));
-    $address = $db->real_escape_string(trim($_POST['address']));
+    $name    = trim($_POST['full_name']);
+    $email   = trim($_POST['email']);
+    $phone   = trim($_POST['phone']);
+    $grade   = trim($_POST['grade']);
+    $address = trim($_POST['address']);
 
     $sql = "INSERT INTO students (full_name, email, phone, grade, address)
-            VALUES ('$name','$email','$phone','$grade','$address')";
-    if($db->query($sql)) {
+            VALUES (?, ?, ?, ?, ?)";
+    $params = [$name, $email, $phone, $grade, $address];
+    $stmt = sqlsrv_query($db, $sql, $params);
+    if($stmt) {
         $msg = ['type'=>'success', 'text'=>"Student '$name' added successfully! (Trigger logged this action)"];
     } else {
-        $msg = ['type'=>'error', 'text'=>"Error: " . $db->error];
+        $errors = sqlsrv_errors();
+        $msg = ['type'=>'error', 'text'=>"Error: " . $errors[0]['message']];
     }
 }
 
 // DELETE STUDENT
 if(isset($_GET['delete'])) {
     $id = (int)$_GET['delete'];
-    if($db->query("DELETE FROM students WHERE student_id=$id")) {
-        $msg = ['type'=>'success', 'text'=>'Student deleted.'];
-    }
+    $stmt = sqlsrv_query($db, "DELETE FROM students WHERE student_id=?", [$id]);
+    if($stmt) $msg = ['type'=>'success', 'text'=>'Student deleted.'];
 }
 
 // UPDATE STATUS
 if(isset($_GET['toggle'])) {
     $id = (int)$_GET['toggle'];
-    $db->query("UPDATE students SET status = IF(status='active','inactive','active') WHERE student_id=$id");
+    sqlsrv_query($db, "UPDATE students SET status = CASE WHEN status='active' THEN 'inactive' ELSE 'active' END WHERE student_id=?", [$id]);
     $msg = ['type'=>'success', 'text'=>'Status updated.'];
 }
 
 // Search
-$search = isset($_GET['search']) ? $db->real_escape_string($_GET['search']) : '';
-$where  = $search ? "WHERE full_name LIKE '%$search%' OR email LIKE '%$search%' OR grade LIKE '%$search%'" : '';
-$students = $db->query("SELECT *, GetStudentTotalPaid(student_id) AS total_paid FROM students $where ORDER BY student_id DESC");
+$search = isset($_GET['search']) ? trim($_GET['search']) : '';
+$params = [];
+if($search) {
+    $sql = "SELECT *, 0 AS total_paid FROM students WHERE full_name LIKE ? OR email LIKE ? OR grade LIKE ? ORDER BY student_id DESC";
+    $like = '%' . $search . '%';
+    $params = [$like, $like, $like];
+} else {
+    $sql = "SELECT *, 0 AS total_paid FROM students ORDER BY student_id DESC";
+}
+$students_stmt = sqlsrv_query($db, $sql, $params);
+
+// Get all rows into array so we can count + iterate
+$students_rows = [];
+while($row = sqlsrv_fetch_array($students_stmt, SQLSRV_FETCH_ASSOC)) {
+    $students_rows[] = $row;
+}
+$student_count = count($students_rows);
 
 include 'header.php';
 ?>
@@ -46,7 +62,7 @@ include 'header.php';
 <div class="main">
     <div class="topbar">
         <h1>👨‍🎓 Students</h1>
-        <span class="topbar-date">Total: <?= $students->num_rows ?> students</span>
+        <span class="topbar-date">Total: <?= $student_count ?> students</span>
     </div>
 
     <?php if($msg): ?>
@@ -111,9 +127,7 @@ include 'header.php';
                     <tr><th>#</th><th>Name</th><th>Grade</th><th>Phone</th><th>Total Paid</th><th>Status</th><th>Actions</th></tr>
                 </thead>
                 <tbody>
-                <?php
-                $students->data_seek(0);
-                while($s = $students->fetch_assoc()): ?>
+                <?php foreach($students_rows as $s): ?>
                 <tr>
                     <td><?= $s['student_id'] ?></td>
                     <td>
@@ -131,7 +145,7 @@ include 'header.php';
                            class="btn btn-danger btn-sm">Del</a>
                     </td>
                 </tr>
-                <?php endwhile; ?>
+                <?php endforeach; ?>
                 </tbody>
             </table>
             </div>
